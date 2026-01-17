@@ -1,4 +1,4 @@
-# AI Disaster Predictor 🌍
+# AI Disaster Predictor 
 
 An AI-based web application designed to predict potential natural disasters using climate-related parameters and provide early awareness to users.
 
