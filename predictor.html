@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Disaster Predictor</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<style>
+body { font-family: Arial; background:#222; color:#fff; text-align:center; margin:0; }
+h1 { color:#ff5722; margin:10px; }
+#inputPanel { margin: 10px; }
+input, button { padding:8px; font-size:16px; margin:5px; }
+#map { height: 500px; margin: 10px; border-radius:10px;}
+.popupHigh { color:red; font-weight:bold; }
+.popupMedium { color:yellow; font-weight:bold; }
+.popupLow { color:lime; font-weight:bold; }
+#weather { margin: 10px; font-size:16px; }
+</style>
+</head>
+<body>
+
+<h1>🌐 Disaster Predictor</h1>
+<div id="inputPanel">
+  <input type="text" id="placeInput" placeholder="Type place name">
+  <button onclick="predictDisaster()">Predict Disaster</button>
+</div>
+<div id="map"></div>
+<div id="weather"><h3>🌦 Live Weather Info</h3><p id="weatherInfo">Loading...</p></div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+// --- Map Setup ---
+var map = L.map('map').setView([12.9716, 77.5946], 10);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19 }).addTo(map);
+
+// --- Predict disaster based on location & weather ---
+async function predictDisaster(){
+  const place = document.getElementById('placeInput').value;
+  if(!place) return alert('Please enter a place!');
+
+  let lat, lon;
+  try{
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(place)}&format=json&limit=1`);
+    const data = await res.json();
+    if(data.length === 0) return alert('Location not found!');
+    lat = parseFloat(data[0].lat);
+    lon = parseFloat(data[0].lon);
+  } catch(e){ return alert('Error fetching location'); }
+
+  const apiKey = '394185d893e3897ce94f471c986f35cd'; // Replace with your key
+  let weatherDesc='', temp=0;
+  try{
+    const wRes = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=metric&appid=${apiKey}`);
+    const wData = await wRes.json();
+    weatherDesc = wData.weather[0].main.toLowerCase();
+    temp = wData.main.temp;
+    document.getElementById('weatherInfo').textContent = `${wData.name}: ${wData.weather[0].description}, Temp: ${temp}°C, Humidity: ${wData.main.humidity}%`;
+  } catch(e){ document.getElementById('weatherInfo').textContent = 'Weather info not available'; }
+
+  let disaster='', severity='';
+  if(weatherDesc.includes('rain') || weatherDesc.includes('drizzle')) disaster='Flood';
+  else if(weatherDesc.includes('storm') || weatherDesc.includes('thunderstorm')) disaster='Storm';
+  else if(temp>35) disaster='Fire';
+  else disaster='Minor Event';
+
+  if(disaster==='Flood' || disaster==='Storm') severity='High';
+  else if(disaster==='Fire') severity='Medium';
+  else severity='Low';
+
+  let color = severity==='High'?'red':severity==='Medium'?'yellow':'lime';
+  let popupClass = severity==='High'?'popupHigh':severity==='Medium'?'popupMedium':'popupLow';
+  L.circleMarker([lat, lon], {color:color, radius:10}).addTo(map)
+    .bindPopup(`${disaster} likely at ${place} → <span class="${popupClass}">${severity}</span>`).openPopup();
+
+  map.setView([lat, lon], 12);
+  document.getElementById('placeInput').value='';
+}
+</script>
+</body>
+</html>
